@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import messagebox
 from tkcalendar import Calendar
 from tkinter.scrolledtext import ScrolledText
+import datetime
 import sqlite3
 def show(event):
     def bearbeitet_speichern():
@@ -65,9 +66,18 @@ def show(event):
 
 def load():
     liste.delete(0,tk.END)
-    cursor = verb.execute("SELECT Datum,Überschrift FROM entrys")
+    calender.calevent_remove()
+    cursor = verb.execute("SELECT Datum,Überschrift FROM entrys ORDER BY Datum ASC")
     for i in cursor:
-        liste.insert(tk.END,f"Datum: {i[0]}, Ereignis: {i[1]}")
+        datum = datetime.datetime.strptime(i[0], "%Y-%m-%d").date()
+        aktuelles_datum = datetime.date.today()
+        if datum<aktuelles_datum:
+            verb.execute("DELETE FROM entrys WHERE Datum=?", (i[0],))
+        else:
+            liste.insert(tk.END,f"Datum: {i[0]}, Ereignis: {i[1]}")
+            calender.calevent_create(datum,f"{i[1]}","reminder")
+            calender.tag_config('reminder', background='yellow', foreground='black')
+    verb.commit()
 def add_entry(event):
     def beenden(uberschrift,beschreigung_eingabe):
         selected_date = calender.selection_get()
@@ -83,10 +93,18 @@ def add_entry(event):
         conn.close()
         if selected_event is None:
             Beschreibung = beschreibung_eingabe.get("1.0", "end")
-            verb.execute("INSERT INTO entrys (Datum, Überschrift, Beschreibung) VALUES (?,?,?)",(selected_date, Ueberschrift, Beschreibung))
-            verb.commit()
-            load()
+            datum = selected_date
+            aktuelles_datum = datetime.date.today()
+            if datum < aktuelles_datum:
+                eintrag.destroy()
+                messagebox.showinfo(title="Eintrag",message="Ereignisse können nicht in der\nVergangenheit erstellt werden")
+                return
+            else:
+                verb.execute("INSERT INTO entrys (Datum, Überschrift, Beschreibung) VALUES (?,?,?)",(selected_date, Ueberschrift, Beschreibung))
+                verb.commit()
+                load()
             eintrag.destroy()
+
             messagebox.showinfo(title="Eintrag",message="Eintrag erfolgreich gespeichert")
         else:
             eintrag.destroy()
